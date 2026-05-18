@@ -1,4 +1,4 @@
-## Ação — 1 passo ✅
+/## Ação — 1 passo ✅
 
 Guarda isto no teu `.md`:
 
@@ -542,3 +542,218 @@ Avoid:
 - rebooting during writes
 - deleting local files before sync finishes
 - editing containers manually without persistence
+
+
+###############################################
+
+# Raspberry Pi 5 — Daily Health Check 🌡️🌀
+
+## Temperatura atual
+
+```bash
+vcgencmd measure_temp
+```
+
+## Throttling
+
+```bash
+vcgencmd get_throttled
+```
+
+```text
+throttled=0x0      -> sem throttling reportado
+throttled=0x80000  -> já aconteceu evento térmico no passado
+```
+
+## Fan / cooler detetado pelo sistema
+
+```bash
+for c in /sys/class/thermal/cooling_device*; do
+  echo "=== $c ==="
+  cat "$c/type"
+  cat "$c/cur_state"
+  cat "$c/max_state"
+done
+```
+
+Exemplo:
+
+```text
+=== /sys/class/thermal/cooling_device0 ===
+pwm-fan
+3
+4
+```
+
+```text
+pwm-fan      -> fan reconhecida
+cur_state 3 -> fan comandada em nível 3
+max_state 4 -> nível máximo é 4
+```
+
+## Monitorizar temperatura + fan
+
+```bash
+watch -n 1 'vcgencmd measure_temp; echo; for c in /sys/class/thermal/cooling_device*; do echo -n "$(cat "$c/type"): "; cat "$c/cur_state"; done'
+```
+
+Sair:
+
+```text
+Ctrl + C
+```
+
+## Monitorizar temperatura + fan + throttling
+
+```bash
+watch -n 1 'vcgencmd measure_temp; echo; for c in /sys/class/thermal/cooling_device*; do echo -n "$(cat "$c/type"): "; cat "$c/cur_state"; done; echo; vcgencmd get_throttled'
+```
+
+Sair:
+
+```text
+Ctrl + C
+```
+
+## Criar comando curto `pifan`
+
+Executar uma vez:
+
+```bash
+cat <<'EOF' >> ~/.bashrc
+
+pifan() {
+  watch -n 1 'vcgencmd measure_temp; echo; for c in /sys/class/thermal/cooling_device*; do echo -n "$(cat "$c/type"): "; cat "$c/cur_state"; done; echo; vcgencmd get_throttled'
+}
+EOF
+
+source ~/.bashrc
+```
+
+Depois usar:
+
+```bash
+pifan
+```
+
+Sair:
+
+```text
+Ctrl + C
+```
+
+## Interpretação rápida da fan
+
+```text
+pwm-fan: 0 -> fan desligada ou sem necessidade térmica
+pwm-fan: 1 -> arrefecimento baixo
+pwm-fan: 2 -> arrefecimento médio
+pwm-fan: 3 -> arrefecimento ativo
+pwm-fan: 4 -> arrefecimento máximo
+```
+
+## Padrão saudável
+
+```text
+temperatura sobe
+fan aumenta
+temperatura estabiliza ou baixa
+```
+
+Exemplo:
+
+```text
+temp=72.0'C
+pwm-fan: 4
+
+depois
+
+temp=68.5'C
+pwm-fan: 3
+```
+
+## Padrão preocupante
+
+```text
+temp > 70'C constante
+pwm-fan: 4 constante
+throttled muda frequentemente
+```
+
+Possíveis causas:
+
+```text
+- má ventilação
+- caixa fechada
+- mau contacto do dissipador com o SoC
+- fan ligada mas pouco eficaz
+- carga alta: Chromium, Docker, Nextcloud, updates
+```
+
+## Ver processos que estão a aquecer o Pi
+
+```bash
+top
+```
+
+Ou:
+
+```bash
+htop
+```
+
+## Ver carga do sistema
+
+```bash
+uptime
+```
+
+Exemplo:
+
+```text
+load average: 0.80, 1.20, 1.50
+```
+
+## Ver Docker / Nextcloud
+
+```bash
+docker ps
+```
+
+Se estiveres na pasta do Nextcloud com `compose.yml`:
+
+```bash
+docker compose ps
+```
+
+## Teste de idle térmico
+
+Fechar Chromium e deixar só:
+
+```bash
+pifan
+```
+
+Observar durante 3 minutos.
+
+```text
+Baixa para 55-65'C -> carga do desktop/Chromium era relevante
+Fica sempre 70-72'C -> investigar cooling/contacto térmico/caixa
+```
+
+## Nota de engenharia
+
+```text
+pwm-fan mostra o nível pedido pelo sistema.
+Não mede RPM real.
+
+pwm-fan: 3
+=
+Linux/firmware está a pedir arrefecimento em nível 3.
+```
+
+## Comando diário recomendado
+
+```bash
+pifan
+```
