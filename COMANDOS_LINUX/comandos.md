@@ -19,3 +19,13 @@ VBoxManage modifyvm "Ubuntu-Base-24.04-CLEAN" --graphicscontroller vboxvga --vra
 
 VBoxManage showvminfo "Ubuntu-Base-24.04-CLEAN" | grep -Ei "graohics|vram|3d"
 
+# quando instalas Linux
+
+Quando a pen arranca carrega F12, e dpois em cima de try INstall Ubbuntu carrega e
+
+e define a forma de arrancar
+
+ghes.disable=1 nomodeset pci=noaer
+
+a linha toda
+	linux /casper/vmlinuz --- quiet splash ghes.disable=1 nomodeset pci=noaer
